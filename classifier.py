@@ -285,7 +285,10 @@ def classification_summary(results: list[ClassificationResult]) -> pd.DataFrame:
             "rules":         " | ".join(r.rules_fired),
             "explanation":   r.explanation,
         })
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=[
+        "segment_id", "channel", "t_start", "t_end", "verdict", 
+        "confidence", "priority", "priority_score", "rules", "explanation"
+    ])
 
 
 # ─── Self-test ──────────────────────────────────────────────────────────────────

@@ -183,8 +183,14 @@ def detect_events(
     step_s            : step size (seconds)
     priority_threshold: score ≥ threshold → HIGH priority
     """
+    # Automatically shrink window if data is too short
+    duration_s = len(channel_data) / fs
+    if duration_s < window_s:
+        window_s = duration_s
+        step_s = duration_s
+
     win_samples  = int(window_s * fs)
-    step_samples = int(step_s * fs)
+    step_samples = max(1, int(step_s * fs))
     n            = len(channel_data)
     windows: list[DetectedWindow] = []
     win_id = 0
@@ -241,7 +247,13 @@ def summarise_events(windows: list[DetectedWindow]) -> pd.DataFrame:
             "events":        ", ".join(w.event_types) if w.event_types else "—",
             **w.stats,
         })
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    if df.empty:
+        df = pd.DataFrame(columns=[
+            "window_id", "channel", "t_start", "t_end", "priority", 
+            "score", "events", "p2p_amp", "rms", "gamma_delta_ratio"
+        ])
+    return df
 
 
 # ─── Self-test ──────────────────────────────────────────────────────────────────

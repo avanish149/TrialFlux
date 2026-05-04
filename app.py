@@ -288,10 +288,10 @@ tx      = S.tx
 iscore  = S.iscore
 
 total    = len(cls_df)
-bio      = (cls_df.verdict == CLASS_BIOLOGICAL).sum()
-corr     = (cls_df.verdict == CLASS_CORRUPTION).sum()
-tamp     = (cls_df.verdict == CLASS_TAMPER).sum()
-clean    = (cls_df.verdict == CLASS_CLEAN).sum()
+bio      = (cls_df["verdict"] == CLASS_BIOLOGICAL).sum() if not cls_df.empty and "verdict" in cls_df.columns else 0
+corr     = (cls_df["verdict"] == CLASS_CORRUPTION).sum() if not cls_df.empty and "verdict" in cls_df.columns else 0
+tamp     = (cls_df["verdict"] == CLASS_TAMPER).sum() if not cls_df.empty and "verdict" in cls_df.columns else 0
+clean    = (cls_df["verdict"] == CLASS_CLEAN).sum() if not cls_df.empty and "verdict" in cls_df.columns else 0
 
 with c1: metric_card("Integrity Score",  f"{iscore:.0f}", "#6C63FF", integrity_badge(iscore))
 with c2: metric_card("Total Segments",   total,           "#8892A4")
@@ -364,11 +364,11 @@ with tab1:
 # ────────────────────────────────────────────────────────────────────
 with tab2:
     ev_df = S.ev_df
-    hi    = ev_df[ev_df.priority == "HIGH"]
+    hi    = ev_df[ev_df["priority"] == "HIGH"] if not ev_df.empty and "priority" in ev_df.columns else ev_df
 
     fig2 = go.Figure()
-    for ch in ev_df.channel.unique():
-        sub = ev_df[ev_df.channel == ch]
+    for ch in ev_df["channel"].unique() if not ev_df.empty and "channel" in ev_df.columns else []:
+        sub = ev_df[ev_df["channel"] == ch]
         fig2.add_trace(go.Scatter(
             x=sub.t_start, y=[ch]*len(sub),
             mode="markers",
@@ -397,17 +397,20 @@ with tab2:
     col_a, col_b = st.columns(2)
     with col_a:
         st.markdown('<div class="section-header">HIGH Priority Windows</div>', unsafe_allow_html=True)
-        st.dataframe(hi[["channel","t_start","t_end","score","events"]].head(30),
-                     use_container_width=True, height=300)
+        disp_cols = [c for c in ["channel","t_start","t_end","score","events"] if c in hi.columns]
+        st.dataframe(hi[disp_cols].head(30), use_container_width=True, height=300)
     with col_b:
         st.markdown('<div class="section-header">Priority Score Distribution</div>', unsafe_allow_html=True)
-        fig3 = px.histogram(ev_df, x="score", color="priority",
-                            color_discrete_map={"HIGH":"#6C63FF","LOW":"#2D3748"},
-                            nbins=30, barmode="overlay",
-                            template="plotly_dark")
-        fig3.update_layout(paper_bgcolor="#0F1117", plot_bgcolor="#13161f",
-                           font=dict(color="#E2E8F0"), height=300, margin=dict(t=10))
-        st.plotly_chart(fig3, use_container_width=True)
+        if not ev_df.empty and "score" in ev_df.columns and "priority" in ev_df.columns:
+            fig3 = px.histogram(ev_df, x="score", color="priority",
+                                color_discrete_map={"HIGH":"#6C63FF","LOW":"#2D3748"},
+                                nbins=30, barmode="overlay",
+                                template="plotly_dark")
+            fig3.update_layout(paper_bgcolor="#0F1117", plot_bgcolor="#13161f",
+                               font=dict(color="#E2E8F0"), height=300, margin=dict(t=10))
+            st.plotly_chart(fig3, use_container_width=True)
+        else:
+            st.info("No events to plot.")
 
 # ────────────────────────────────────────────────────────────────────
 # TAB 3 — Transmission
@@ -463,19 +466,22 @@ with tab4:
         "computed_hash": v.computed_hash,
     } for v in verdicts])
 
-    vc = vdf.verdict.value_counts().reset_index()
+    vc = vdf["verdict"].value_counts().reset_index() if not vdf.empty and "verdict" in vdf.columns else pd.DataFrame(columns=["verdict", "count"])
     vc.columns = ["verdict","count"]
 
     col_v = {"VALID":"#36D399","HASH_FAIL":"#FF4E5B","CHAIN_FAIL":"#FFC947","MISSING":"#8892A4"}
-    figI = px.pie(vc, names="verdict", values="count",
-                  color="verdict", color_discrete_map=col_v,
-                  hole=0.55, template="plotly_dark")
-    figI.update_layout(paper_bgcolor="#0F1117", font=dict(color="#E2E8F0"),
-                       height=300, margin=dict(t=20,b=20))
-
+    
     col_pie, col_chain = st.columns([1, 2])
     with col_pie:
-        st.plotly_chart(figI, use_container_width=True)
+        if not vc.empty and "verdict" in vc.columns and "count" in vc.columns:
+            figI = px.pie(vc, names="verdict", values="count",
+                          color="verdict", color_discrete_map=col_v,
+                          hole=0.55, template="plotly_dark")
+            figI.update_layout(paper_bgcolor="#0F1117", font=dict(color="#E2E8F0"),
+                               height=300, margin=dict(t=20,b=20))
+            st.plotly_chart(figI, use_container_width=True)
+        else:
+            st.info("No data to plot.")
         st.metric("Overall Integrity Score", f"{S.iscore:.1f} / 100",
                   delta=integrity_badge(S.iscore))
     with col_chain:
@@ -494,35 +500,44 @@ with tab5:
     cls_df = S.cls_df
 
     # Verdict donut
-    vc2 = cls_df.verdict.value_counts().reset_index()
+    vc2 = cls_df["verdict"].value_counts().reset_index() if not cls_df.empty and "verdict" in cls_df.columns else pd.DataFrame(columns=["verdict", "count"])
     vc2.columns = ["verdict","count"]
     cmap2 = {CLASS_CLEAN:"#36D399", CLASS_BIOLOGICAL:"#00D4AA",
               CLASS_CORRUPTION:"#FFC947", CLASS_TAMPER:"#FF4E5B"}
-    figC = px.pie(vc2, names="verdict", values="count",
-                  color="verdict", color_discrete_map=cmap2,
-                  hole=0.6, template="plotly_dark")
-    figC.update_traces(textposition="outside", textinfo="percent+label")
-    figC.update_layout(paper_bgcolor="#0F1117", font=dict(color="#E2E8F0"),
-                       height=340, margin=dict(t=20,b=20))
-
-    # Confidence scatter
-    figS = px.scatter(cls_df, x="t_start", y="confidence",
-                      color="verdict", color_discrete_map=cmap2,
-                      size="priority_score", hover_data=["channel","rules"],
-                      template="plotly_dark",
-                      labels={"t_start":"Time (s)","confidence":"Confidence"})
-    figS.update_layout(paper_bgcolor="#0F1117", plot_bgcolor="#13161f",
-                       font=dict(color="#E2E8F0"), height=340,
-                       legend=dict(bgcolor="rgba(0,0,0,0)"))
-
+              
     col_d, col_s = st.columns(2)
-    with col_d: st.plotly_chart(figC, use_container_width=True)
-    with col_s: st.plotly_chart(figS, use_container_width=True)
+    with col_d: 
+        if not vc2.empty and "verdict" in vc2.columns and "count" in vc2.columns:
+            figC = px.pie(vc2, names="verdict", values="count",
+                          color="verdict", color_discrete_map=cmap2,
+                          hole=0.6, template="plotly_dark")
+            figC.update_traces(textposition="outside", textinfo="percent+label")
+            figC.update_layout(paper_bgcolor="#0F1117", font=dict(color="#E2E8F0"),
+                               height=340, margin=dict(t=20,b=20))
+            st.plotly_chart(figC, use_container_width=True)
+        else:
+            st.info("No classification data.")
+            
+    with col_s: 
+        if not cls_df.empty and "t_start" in cls_df.columns and "confidence" in cls_df.columns:
+            figS = px.scatter(cls_df, x="t_start", y="confidence",
+                              color="verdict", color_discrete_map=cmap2,
+                              size="priority_score" if "priority_score" in cls_df.columns else None,
+                              hover_data=["channel","rules"] if "channel" in cls_df.columns else None,
+                              template="plotly_dark",
+                              labels={"t_start":"Time (s)","confidence":"Confidence"})
+            figS.update_layout(paper_bgcolor="#0F1117", plot_bgcolor="#13161f",
+                               font=dict(color="#E2E8F0"), height=340,
+                               legend=dict(bgcolor="rgba(0,0,0,0)"))
+            st.plotly_chart(figS, use_container_width=True)
+        else:
+            st.info("No confidence scatter data.")
 
     # Detailed table with coloured verdict column
     st.markdown('<div class="section-header">Segment-Level Verdicts</div>', unsafe_allow_html=True)
-    display_df = cls_df[["segment_id","channel","t_start","t_end",
-                          "verdict","confidence","priority","priority_score","rules"]].copy()
+    req_cols = ["segment_id","channel","t_start","t_end","verdict","confidence","priority","priority_score","rules"]
+    disp_cols = [c for c in req_cols if c in cls_df.columns]
+    display_df = cls_df[disp_cols].copy()
 
     def highlight_verdict(val):
         c = cmap2.get(val, "#fff")
