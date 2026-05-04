@@ -528,7 +528,11 @@ with tab5:
         c = cmap2.get(val, "#fff")
         return f"color:{c};font-weight:600"
 
-    styled = display_df.style.applymap(highlight_verdict, subset=["verdict"])
+    # For compatibility with newer Pandas (>=2.1.0) use .map instead of .applymap
+    if hasattr(display_df.style, "map"):
+        styled = display_df.style.map(highlight_verdict, subset=["verdict"])
+    else:
+        styled = display_df.style.applymap(highlight_verdict, subset=["verdict"])
     st.dataframe(styled, use_container_width=True, height=380)
 
 # ────────────────────────────────────────────────────────────────────
