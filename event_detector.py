@@ -21,6 +21,12 @@ from dataclasses import dataclass, field
 from scipy import signal as sp_signal
 from utils import zscore
 
+# --- Compatibility for NumPy 2.0+ ---
+if hasattr(np, "trapezoid"):
+    _trapz = np.trapezoid
+else:
+    _trapz = np.trapz
+
 
 # ─── Window configuration ───────────────────────────────────────────────────────
 WINDOW_S     = 2      # seconds per window
@@ -74,7 +80,7 @@ def _band_power(window: np.ndarray, fs: int, low: float, high: float) -> float:
     nperseg = min(n, 64)
     freqs, psd = sp_signal.welch(window, fs=fs, nperseg=nperseg)
     band_mask = (freqs >= low) & (freqs <= high)
-    return float(np.trapz(psd[band_mask], freqs[band_mask]))
+    return float(_trapz(psd[band_mask], freqs[band_mask]))
 
 
 def _sharpness(window: np.ndarray) -> float:
